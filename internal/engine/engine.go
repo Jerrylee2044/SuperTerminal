@@ -357,6 +357,10 @@ func (e *Engine) processCommand(cmd string, source Source) error {
 		}
 	case "/mcp":
 		e.handleMCPCommand(args)
+	case "/exit":
+		e.eventBus.Publish(NewEvent(EventToolOutput, "Exiting SuperTerminal...", SourceEngine))
+		e.cancel()
+		return fmt.Errorf("exit requested")
 	default:
 		e.eventBus.Publish(NewEvent(EventError,
 			fmt.Errorf("unknown command: %s. Type /help for available commands.", commandName), SourceEngine))
