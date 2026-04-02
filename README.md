@@ -269,7 +269,7 @@ SuperTerminal/
 
 ## Project Status
 
-**Current Version:** v0.3.0
+**Current Version:** v0.4.0
 
 | Phase | Status | Features |
 |:---|:---|:---|
@@ -280,13 +280,13 @@ SuperTerminal/
 | Phase 5 | ✅ Complete | MCP client, tools, resources |
 | Phase 6 | ✅ Complete | Cache, concurrency, resource management |
 | Phase 7 | ✅ Complete | TUI/Web UX enhancements |
-| Phase 8 | 🔄 In Progress | Documentation, release |
+| Phase 8 | ✅ Complete | Documentation, release scripts |
 
 **Statistics:**
 - Go Code: 15,586 lines
 - Web UI: 1,724 lines
 - Tests: 180 (all passing)
-- Binary Size: 10MB
+- Binary Size: 6.9MB (stripped)
 
 ## Building
 
