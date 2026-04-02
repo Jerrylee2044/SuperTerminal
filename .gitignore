@@ -1,0 +1,48 @@
+# Binaries
+bin/
+build/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test artifacts
+*.test
+*.out
+coverage.out
+coverage.html
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary
+*.tmp
+*.log
+tmp/
+
+# Secrets (never commit)
+*.pem
+*.key
+secrets/
+.env
+
+# Tool results (generated during sessions)
+.copaw/workspaces/default/tool_result/
+
+# Memory files (personal)
+memory/
+
+# Data directory contents (user-specific)
+# Note: config.json template is kept, actual data excluded
+.sessions/
+.logs/
+.exports/

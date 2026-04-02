@@ -1,0 +1,1725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuperTerminal</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        :root {
+            --bg-primary: #0f0f1a;
+            --bg-secondary: #16162a;
+            --bg-tertiary: #1a1a3a;
+            --bg-card: #1e1e3e;
+            --border-color: #2a2a4a;
+            --text-primary: #e0e0e0;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --accent: #7c3aed;
+            --accent-light: #a855f7;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --code-bg: #2d2d4d;
+            --scrollbar-bg: var(--bg-tertiary);
+            --scrollbar-thumb: var(--border-color);
+        }
+        
+        /* Light theme */
+        [data-theme="light"] {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #f1f5f9;
+            --bg-tertiary: #e2e8f0;
+            --bg-card: #ffffff;
+            --border-color: #cbd5e1;
+            --text-primary: #1e293b;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            --accent: #7c3aed;
+            --accent-light: #a855f7;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --code-bg: #f1f5f9;
+            --scrollbar-bg: var(--bg-tertiary);
+            --scrollbar-thumb: var(--border-color);
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            transition: width 0.3s ease;
+        }
+        
+        .sidebar.collapsed { width: 0; overflow: hidden; }
+        
+        .sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .sidebar-header h2 {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+        
+        .sidebar-header button {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+        }
+        
+        .session-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+        
+        .session-item {
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 4px;
+            transition: background 0.2s;
+            border: 1px solid transparent;
+        }
+        
+        .session-item:hover {
+            background: var(--bg-tertiary);
+        }
+        
+        .session-item.active {
+            background: var(--bg-card);
+            border-color: var(--accent);
+        }
+        
+        .session-item .title {
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .session-item .meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        
+        .session-item .tags {
+            display: flex;
+            gap: 4px;
+            margin-top: 6px;
+        }
+        
+        .session-item .tag {
+            background: var(--accent);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+        }
+        
+        .new-session-btn {
+            margin: 8px;
+            padding: 10px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        .new-session-btn:hover { opacity: 0.9; }
+        
+        /* Main content */
+        .main-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        /* Header */
+        .header {
+            background: var(--bg-secondary);
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .toggle-sidebar {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 6px;
+        }
+        
+        .toggle-sidebar:hover { background: var(--bg-tertiary); }
+        
+        .header h1 {
+            font-size: 1.2rem;
+            color: var(--accent);
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-left: auto;
+        }
+        
+        /* Progress bar */
+        .progress-container {
+            background: var(--bg-tertiary);
+            padding: 4px 20px;
+            position: relative;
+            height: 24px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .progress-bar {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--accent-light));
+            transition: width 0.3s ease;
+            opacity: 0.3;
+        }
+        
+        .progress-text {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            z-index: 1;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 12px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        
+        .stats span { cursor: pointer; }
+        .stats span:hover { color: var(--text-secondary); }
+        
+        .status {
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            background: var(--bg-tertiary);
+        }
+        
+        .status.active { background: var(--success); color: white; }
+        .status.thinking { background: var(--warning); color: white; }
+        .status.error { background: var(--error); color: white; }
+        .status.tool { background: var(--accent); color: white; }
+        
+        .settings-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 6px;
+        }
+        
+        .settings-btn:hover { background: var(--bg-tertiary); color: var(--text-secondary); }
+        
+        /* Messages area */
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .message {
+            padding: 14px 18px;
+            border-radius: 12px;
+            max-width: 85%;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes thinkingPulse {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
+        }
+        
+        .message.user {
+            background: linear-gradient(135deg, #2d2d5a, #3d3d6a);
+            align-self: flex-end;
+            border: 1px solid var(--border-color);
+        }
+        
+        .message.assistant {
+            background: var(--bg-card);
+            align-self: flex-start;
+            border: 1px solid var(--border-color);
+        }
+        
+        .message .role {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .message .content {
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.6;
+        }
+        
+        .message .thinking {
+            background: #252545;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            border-left: 3px solid var(--accent);
+            animation: thinkingPulse 1.5s infinite;
+        }
+        
+        .message .thinking-label {
+            font-size: 0.75rem;
+            color: var(--accent);
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .message .thinking-label::before {
+            content: '💭';
+        }
+        
+        .message .code-block {
+            background: var(--code-bg);
+            padding: 16px;
+            border-radius: 8px;
+            margin: 12px 0;
+            font-family: 'Monaco', 'Consolas', 'Fira Code', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+            line-height: 1.6;
+        }
+        
+        /* Syntax highlighting colors */
+        .message .code-block .keyword { color: #c678dd; }
+        .message .code-block .string { color: #98c379; }
+        .message .code-block .number { color: #d19a66; }
+        .message .code-block .comment { color: #5c6370; font-style: italic; }
+        .message .code-block .function { color: #61afef; }
+        .message .code-block .operator { color: #56b6c2; }
+        .message .code-block .variable { color: #e06c75; }
+        [data-theme="light"] .message .code-block .keyword { color: #a626a4; }
+        [data-theme="light"] .message .code-block .string { color: #50a14f; }
+        [data-theme="light"] .message .code-block .number { color: #986801; }
+        [data-theme="light"] .message .code-block .comment { color: #a0a1a7; font-style: italic; }
+        [data-theme="light"] .message .code-block .function { color: #4078f2; }
+        [data-theme="light"] .message .code-block .operator { color: #0184bc; }
+        [data-theme="light"] .message .code-block .variable { color: #e45649; }
+        
+        .message .code-header {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px;
+            background: var(--bg-tertiary);
+            border-radius: 6px 6px 0 0;
+            margin: -16px -16px 12px -16px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        
+        .message .code-header .copy-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 2px 8px;
+            transition: color 0.2s;
+        }
+        
+        .message .code-header .copy-btn:hover { color: var(--accent); }
+        .message .code-header .copy-btn.copied { color: var(--success); }
+        
+        .message .inline-code {
+            background: var(--bg-tertiary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+        
+        /* Theme toggle button */
+        .theme-toggle {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        
+        .theme-toggle:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--scrollbar-bg); }
+        ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+        
+        /* Tool execution panel */
+        .tool-panel {
+            background: var(--bg-card);
+            padding: 16px 20px;
+            border-top: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+            display: none;
+        }
+        
+        .tool-panel.visible { display: block; }
+        
+        .tool-panel-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+        
+        .tool-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+        }
+        
+        .tool-icon.running { background: var(--warning); color: white; }
+        .tool-icon.success { background: var(--success); color: white; }
+        .tool-icon.error { background: var(--error); color: white; }
+        
+        .tool-name {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .tool-status {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-left: auto;
+        }
+        
+        .tool-input {
+            background: var(--bg-primary);
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 8px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .tool-output {
+            background: var(--bg-primary);
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            margin-top: 8px;
+            max-height: 100px;
+            overflow-y: auto;
+            font-family: monospace;
+        }
+        
+        .tool-progress {
+            height: 3px;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        
+        .tool-progress-bar {
+            height: 100%;
+            background: var(--accent);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        
+        /* Commands bar */
+        .commands-bar {
+            display: flex;
+            gap: 8px;
+            padding: 10px 20px;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .cmd-btn {
+            background: var(--bg-tertiary);
+            color: var(--text-muted);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .cmd-btn:hover {
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            border-color: var(--accent);
+        }
+        
+        /* Input area */
+        .input-area {
+            background: var(--bg-secondary);
+            padding: 16px 20px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+        
+        .input-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .input-hint {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        
+        .input-box {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            outline: none;
+            resize: none;
+            min-height: 44px;
+            max-height: 200px;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+        
+        .input-box:focus {
+            border-color: var(--accent);
+        }
+        
+        .input-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .send-btn {
+            background: linear-gradient(135deg, var(--accent), #5b21b6);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 12px 24px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+        
+        .send-btn:hover { opacity: 0.9; }
+        .send-btn:active { transform: scale(0.98); }
+        .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .cancel-btn {
+            background: var(--error);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            display: none;
+        }
+        
+        .cancel-btn.visible { display: block; }
+        
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 80px 40px;
+            color: var(--text-muted);
+        }
+        
+        .empty-state h2 {
+            color: var(--accent);
+            margin-bottom: 12px;
+            font-size: 1.5rem;
+        }
+        
+        .empty-state p {
+            margin-bottom: 8px;
+        }
+        
+        .empty-state .examples {
+            margin-top: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .empty-state .example {
+            background: var(--bg-tertiary);
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .empty-state .example:hover {
+            background: var(--bg-card);
+        }
+        
+        /* Settings modal */
+        .settings-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .settings-modal.visible { display: flex; }
+        
+        .settings-content {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 24px;
+            width: 400px;
+            max-width: 90%;
+            border: 1px solid var(--border-color);
+        }
+        
+        .settings-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        
+        .settings-header h2 {
+            color: var(--accent);
+        }
+        
+        .settings-close {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1.5rem;
+        }
+        
+        .settings-group {
+            margin-bottom: 20px;
+        }
+        
+        .settings-group label {
+            display: block;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+        
+        .settings-group input,
+        .settings-group select {
+            width: 100%;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+        }
+        
+        .settings-group input:focus,
+        .settings-group select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        .settings-save {
+            width: 100%;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        
+        /* Permission request modal */
+        .permission-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .permission-modal.visible { display: flex; }
+        
+        .permission-content {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 24px;
+            width: 450px;
+            max-width: 90%;
+            border: 1px solid var(--warning);
+        }
+        
+        .permission-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .permission-icon {
+            font-size: 2rem;
+        }
+        
+        .permission-title {
+            color: var(--warning);
+            font-size: 1.1rem;
+        }
+        
+        .permission-message {
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+        
+        .permission-tool {
+            background: var(--bg-tertiary);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .permission-tool .name {
+            color: var(--accent);
+            font-weight: 600;
+        }
+        
+        .permission-actions {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .permission-allow {
+            flex: 1;
+            background: var(--success);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+        }
+        
+        .permission-deny {
+            flex: 1;
+            background: var(--error);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--border-color);
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar { width: 0; overflow: hidden; }
+            .sidebar.expanded { width: 260px; position: absolute; z-index: 100; }
+            .header-right .stats { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2>📋 Sessions</h2>
+            <button onclick="toggleSidebar()">✕</button>
+        </div>
+        <div class="session-list" id="session-list">
+            <div class="session-item active">
+                <div class="title">Current Session</div>
+                <div class="meta">Started: just now</div>
+            </div>
+        </div>
+        <button class="new-session-btn" onclick="newSession()">+ New Session</button>
+    </div>
+    
+    <!-- Main container -->
+    <div class="main-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <button class="toggle-sidebar" onclick="toggleSidebar()">☰</button>
+                <h1>⚡ SuperTerminal</h1>
+            </div>
+            <div class="header-right">
+                <div class="stats">
+                    <span id="cost-info" title="API cost">Cost: $0.00</span>
+                    <span id="token-info" title="Input/Output tokens">Tokens: 0/0</span>
+                    <span id="model-info" title="Current model">claude-sonnet-4</span>
+                </div>
+                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+                    <span id="theme-icon">🌙</span>
+                </button>
+                <span id="status" class="status active">Ready</span>
+                <button class="settings-btn" onclick="showSettings()">⚙️</button>
+            </div>
+        </div>
+        
+        <!-- Progress bar -->
+        <div class="progress-container" id="progress-container" style="display: none;">
+            <div class="progress-bar" id="progress-bar" style="width: 0%;"></div>
+            <div class="progress-text" id="progress-text"></div>
+        </div>
+        
+        <!-- Messages -->
+        <div class="messages-container" id="messages">
+            <div class="empty-state">
+                <h2>Welcome to SuperTerminal</h2>
+                <p>Your AI-powered terminal assistant</p>
+                <p>Press Enter to send, Shift+Enter for newline</p>
+                <div class="examples">
+                    <div class="example" onclick="setInput('What files are in the current directory?')">📁 What files are in the current directory?</div>
+                    <div class="example" onclick="setInput('Read the main.go file')">📄 Read the main.go file</div>
+                    <div class="example" onclick="setInput('Help me debug this error')">🐛 Help me debug this error</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tool panel -->
+        <div class="tool-panel" id="tool-panel">
+            <div class="tool-panel-header">
+                <div class="tool-icon running" id="tool-icon">⚡</div>
+                <span class="tool-name" id="tool-name">bash</span>
+                <span class="tool-status" id="tool-status">Running...</span>
+            </div>
+            <div class="tool-input" id="tool-input">ls -la</div>
+            <div class="tool-output" id="tool-output"></div>
+            <div class="tool-progress">
+                <div class="tool-progress-bar" id="tool-progress"></div>
+            </div>
+        </div>
+        
+        <!-- Commands bar -->
+        <div class="commands-bar">
+            <button class="cmd-btn" onclick="sendCommand('/help')">❓ /help</button>
+            <button class="cmd-btn" onclick="sendCommand('/clear')">🗑️ /clear</button>
+            <button class="cmd-btn" onclick="sendCommand('/cost')">💰 /cost</button>
+            <button class="cmd-btn" onclick="sendCommand('/status')">📊 /status</button>
+            <button class="cmd-btn" onclick="sendCommand('/model')">🤖 /model</button>
+            <button class="cmd-btn" onclick="sendCommand('/sessions')">📋 /sessions</button>
+        </div>
+        
+        <!-- Input area -->
+        <div class="input-area">
+            <div class="input-wrapper">
+                <div class="input-hint">Enter to send, Shift+Enter for newline, ↑↓ for history</div>
+                <textarea class="input-box" id="input" placeholder="Type a message or command..." rows="1"></textarea>
+            </div>
+            <div class="input-actions">
+                <button class="cancel-btn" id="cancel-btn" onclick="cancelOperation()">✕ Cancel</button>
+                <button class="send-btn" id="send-btn">Send</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Settings modal -->
+    <div class="settings-modal" id="settings-modal">
+        <div class="settings-content">
+            <div class="settings-header">
+                <h2>⚙️ Settings</h2>
+                <button class="settings-close" onclick="hideSettings()">✕</button>
+            </div>
+            <div class="settings-group">
+                <label>Model</label>
+                <select id="settings-model">
+                    <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                    <option value="claude-opus-4-20250514">Claude Opus 4</option>
+                    <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku</option>
+                </select>
+            </div>
+            <div class="settings-group">
+                <label>Max Tokens</label>
+                <input type="number" id="settings-max-tokens" value="8192" min="1" max="100000">
+            </div>
+            <div class="settings-group">
+                <label>API Key</label>
+                <input type="password" id="settings-api-key" placeholder="Enter your API key">
+            </div>
+            <button class="settings-save" onclick="saveSettings()">Save Settings</button>
+        </div>
+    </div>
+    
+    <!-- Permission modal -->
+    <div class="permission-modal" id="permission-modal">
+        <div class="permission-content">
+            <div class="permission-header">
+                <span class="permission-icon">⚠️</span>
+                <span class="permission-title">Permission Required</span>
+            </div>
+            <div class="permission-message" id="permission-message">
+                This action requires your confirmation.
+            </div>
+            <div class="permission-tool" id="permission-tool">
+                <span class="name" id="permission-tool-name">bash</span>
+                <div id="permission-tool-input"></div>
+            </div>
+            <div class="permission-actions">
+                <button class="permission-allow" onclick="allowPermission()">✓ Allow</button>
+                <button class="permission-deny" onclick="denyPermission()">✕ Deny</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let ws = null;
+        let messages = [];
+        let currentMessage = null;
+        let currentThinking = null;
+        let history = [];
+        let historyIndex = -1;
+        let cost = { total_cost: 0, input_tokens: 0, output_tokens: 0 };
+        let sessions = [];
+        let currentSessionId = null;
+        let pendingPermission = null;
+        let isConnected = false;
+        
+        // Connect WebSocket
+        function connect() {
+            const wsUrl = 'ws://' + location.host + '/ws';
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                isConnected = true;
+                updateStatus('Ready', 'active');
+                // Request initial state
+                ws.send(JSON.stringify({ type: 'get_status' }));
+                ws.send(JSON.stringify({ type: 'get_cost' }));
+            };
+            
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleEvent(data);
+                } catch (e) {
+                    console.error('Parse error:', e);
+                }
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                updateStatus('Connection error', 'error');
+            };
+            
+            ws.onclose = () => {
+                console.log('WebSocket closed, reconnecting...');
+                isConnected = false;
+                updateStatus('Disconnected', 'error');
+                setTimeout(connect, 3000);
+            };
+        }
+        
+        // Handle events from server
+        function handleEvent(event) {
+            console.log('Event:', event.type, event);
+            
+            switch (event.type) {
+                // Connection events
+                case 'connected':
+                    console.log('Client ID:', event.data?.client_id);
+                    break;
+                    
+                // Session events
+                case 'session_loaded':
+                    currentSessionId = event.data?.id;
+                    updateSessionTitle(event.data?.title || 'Current Session');
+                    break;
+                    
+                case 'session_saved':
+                    refreshSessions();
+                    break;
+                    
+                // User input echoed
+                case 'user_input':
+                case 'input_received':
+                    if (event.data?.content && !event.data.content.startsWith('/')) {
+                        addMessage('user', event.data.content);
+                        history.push(event.data.content);
+                        historyIndex = history.length;
+                    }
+                    break;
+                    
+                // API streaming
+                case 'api_start':
+                    updateStatus('Thinking...', 'thinking');
+                    startStreamingMessage();
+                    break;
+                    
+                case 'api_stream':
+                    handleStreamEvent(event.data);
+                    break;
+                    
+                case 'api_complete':
+                    finishStreaming();
+                    updateStatus('Ready', 'active');
+                    break;
+                    
+                case 'api_error':
+                    showError(event.data || 'API error');
+                    finishStreaming();
+                    updateStatus('Error', 'error');
+                    break;
+                    
+                // Tool events
+                case 'tool_start':
+                    showToolPanel(event.data);
+                    updateStatus('Tool: ' + event.data?.name, 'tool');
+                    break;
+                    
+                case 'tool_output':
+                    updateToolOutput(event.data);
+                    break;
+                    
+                case 'tool_complete':
+                    finishToolPanel();
+                    updateStatus('Ready', 'active');
+                    break;
+                    
+                case 'tool_error':
+                    showToolError(event.data);
+                    updateStatus('Error', 'error');
+                    break;
+                    
+                // Permission request
+                case 'permission_request':
+                    showPermissionModal(event.data);
+                    break;
+                    
+                // Cost update
+                case 'cost':
+                case 'cost_update':
+                    updateCost(event.data);
+                    break;
+                    
+                // Status events
+                case 'status':
+                case 'status_change':
+                    handleStatusChange(event.data);
+                    break;
+                    
+                // Error
+                case 'error':
+                    showError(event.data || event.error || 'Unknown error');
+                    break;
+                    
+                // Command responses
+                case 'command_executed':
+                    console.log('Command executed:', event.data?.command);
+                    break;
+                    
+                case 'cancelled':
+                    updateStatus('Ready', 'active');
+                    hideToolPanel();
+                    break;
+            }
+        }
+        
+        // Handle stream event
+        function handleStreamEvent(data) {
+            if (!data) return;
+            
+            if (data.type === 'text' || data.text) {
+                appendToMessage(data.text || data.content);
+            } else if (data.type === 'thinking' || data.thinking) {
+                appendThinking(data.thinking);
+            }
+        }
+        
+        // Handle status change
+        function handleStatusChange(status) {
+            const statusStr = String(status).toLowerCase();
+            if (statusStr === 'thinking') {
+                updateStatus('Thinking...', 'thinking');
+            } else if (statusStr === 'tool_exec') {
+                updateStatus('Executing tool...', 'tool');
+            } else if (statusStr === 'idle') {
+                updateStatus('Ready', 'active');
+            } else if (statusStr === 'error') {
+                updateStatus('Error', 'error');
+            }
+        }
+        
+        // Message handling
+        function startStreamingMessage() {
+            const container = document.getElementById('messages');
+            removeEmptyState();
+            
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message assistant streaming';
+            
+            const roleDiv = document.createElement('div');
+            roleDiv.className = 'role';
+            roleDiv.innerHTML = '🤖 Assistant <span style="animation: thinkingPulse 1s infinite;">●</span>';
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'content';
+            
+            msgDiv.appendChild(roleDiv);
+            msgDiv.appendChild(contentDiv);
+            container.appendChild(msgDiv);
+            
+            currentMessage = contentDiv;
+            currentThinking = null;
+            
+            scrollToBottom();
+        }
+        
+        function appendToMessage(text) {
+            if (!currentMessage) startStreamingMessage();
+            
+            // Append raw text, will format on finish
+            currentMessage.textContent += text;
+            scrollToBottom();
+        }
+        
+        function appendThinking(text) {
+            if (!currentMessage) return;
+            
+            // Create or update thinking block
+            let thinkingDiv = currentMessage.parentElement.querySelector('.thinking');
+            if (!thinkingDiv) {
+                thinkingDiv = document.createElement('div');
+                thinkingDiv.className = 'thinking';
+                
+                const labelDiv = document.createElement('div');
+                labelDiv.className = 'thinking-label';
+                labelDiv.textContent = 'Thinking';
+                
+                thinkingDiv.appendChild(labelDiv);
+                currentMessage.parentElement.insertBefore(thinkingDiv, currentMessage);
+            }
+            
+            const contentDiv = thinkingDiv.querySelector('.thinking-content') || 
+                               document.createElement('div');
+            contentDiv.className = 'thinking-content';
+            contentDiv.textContent += text;
+            
+            if (!thinkingDiv.contains(contentDiv)) {
+                thinkingDiv.appendChild(contentDiv);
+            }
+            
+            currentThinking = contentDiv;
+            scrollToBottom();
+        }
+        
+        function finishStreaming() {
+            if (currentMessage) {
+                // Format the content
+                currentMessage.innerHTML = formatContent(currentMessage.textContent);
+                
+                // Remove streaming indicator
+                const roleDiv = currentMessage.parentElement.querySelector('.role');
+                if (roleDiv) {
+                    roleDiv.innerHTML = '🤖 Assistant';
+                }
+                
+                currentMessage.parentElement.classList.remove('streaming');
+            }
+            
+            // Format thinking
+            if (currentThinking) {
+                currentThinking.innerHTML = formatContent(currentThinking.textContent);
+            }
+            
+            currentMessage = null;
+            currentThinking = null;
+        }
+        
+        function addMessage(role, content) {
+            const container = document.getElementById('messages');
+            removeEmptyState();
+            
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message ' + role;
+            
+            const roleDiv = document.createElement('div');
+            roleDiv.className = 'role';
+            roleDiv.innerHTML = role === 'user' ? '👤 You' : '🤖 Assistant';
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'content';
+            contentDiv.innerHTML = formatContent(content);
+            
+            msgDiv.appendChild(roleDiv);
+            msgDiv.appendChild(contentDiv);
+            container.appendChild(msgDiv);
+            
+            scrollToBottom();
+        }
+        
+        // Format content with markdown
+        function formatContent(content) {
+            if (!content) return '';
+            
+            // Escape HTML first
+            let html = escapeHtml(content);
+            
+            // Code blocks with syntax highlighting
+            html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
+                const highlighted = highlightCode(code.trim(), lang);
+                return `<div class="code-block">
+                    <div class="code-header">
+                        <span>${lang || 'code'}</span>
+                        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    </div>
+                    ${highlighted}
+                </div>`;
+            });
+            
+            // Inline code
+            html = html.replace(/`([^`]+)`/g, '<span class="inline-code">$1</span>');
+            
+            // Bold
+            html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+            
+            // Italics
+            html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+            
+            // Links
+            html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+            
+            // Line breaks
+            html = html.replace(/\n/g, '<br>');
+            
+            return html;
+        }
+        
+        // Simple syntax highlighting
+        function highlightCode(code, lang) {
+            const escaped = escapeHtml(code);
+            
+            // Keywords for common languages
+            const keywords = {
+                'go': ['package', 'import', 'func', 'return', 'if', 'else', 'for', 'range', 'var', 'const', 'type', 'struct', 'interface', 'map', 'chan', 'go', 'select', 'case', 'default', 'defer', 'nil', 'true', 'false'],
+                'javascript': ['function', 'return', 'if', 'else', 'for', 'while', 'const', 'let', 'var', 'class', 'import', 'export', 'from', 'async', 'await', 'try', 'catch', 'throw', 'new', 'true', 'false', 'null', 'undefined'],
+                'python': ['def', 'class', 'return', 'if', 'elif', 'else', 'for', 'while', 'import', 'from', 'as', 'try', 'except', 'raise', 'with', 'lambda', 'True', 'False', 'None', 'self', 'async', 'await'],
+                'bash': ['if', 'then', 'else', 'fi', 'for', 'while', 'do', 'done', 'function', 'return', 'exit', 'echo', 'cd', 'ls', 'mkdir', 'rm', 'cat', 'grep', 'sudo', 'chmod', 'export'],
+                'default': ['function', 'return', 'if', 'else', 'for', 'while', 'var', 'let', 'const', 'class', 'import', 'export', 'true', 'false', 'null']
+            };
+            
+            const kwList = keywords[lang] || keywords['default'];
+            let result = escaped;
+            
+            // Highlight keywords
+            kwList.forEach(kw => {
+                result = result.replace(new RegExp(`\\b(${kw})\\b`, 'g'), '<span class="keyword">$1</span>');
+            });
+            
+            // Highlight strings (double quotes)
+            result = result.replace(/"([^"]*)"/g, '<span class="string">"$1"</span>');
+            
+            // Highlight strings (single quotes)
+            result = result.replace(/'([^']*)'/g, '<span class="string">\'$1\'</span>');
+            
+            // Highlight numbers
+            result = result.replace(/\b(\d+)\b/g, '<span class="number">$1</span>');
+            
+            // Highlight comments (single line)
+            if (lang === 'python' || lang === 'bash') {
+                result = result.replace(/(#.*)$/gm, '<span class="comment">$1</span>');
+            } else {
+                result = result.replace(/(\/\/.*)$/gm, '<span class="comment">$1</span>');
+            }
+            
+            return result;
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function copyCode(btn) {
+            const codeBlock = btn.closest('.code-block');
+            // Get code content, excluding the header
+            const codeContent = codeBlock.querySelector('.code-header').nextSibling.textContent;
+            navigator.clipboard.writeText(codeContent.trim());
+            btn.textContent = '✓ Copied';
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.textContent = 'Copy';
+                btn.classList.remove('copied');
+            }, 2000);
+        }
+        
+        // Progress indicator
+        function showProgress(percent, text) {
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            if (progressBar) {
+                progressBar.style.width = `${percent}%`;
+            }
+            if (progressText) {
+                progressText.textContent = text || '';
+            }
+        }
+        
+        function hideProgress() {
+            showProgress(0, '');
+        }
+        
+        // Tool panel
+        function showToolPanel(data) {
+            const panel = document.getElementById('tool-panel');
+            panel.classList.add('visible');
+            
+            document.getElementById('tool-name').textContent = data?.name || 'unknown';
+            document.getElementById('tool-icon').className = 'tool-icon running';
+            document.getElementById('tool-icon').textContent = getToolIcon(data?.name);
+            document.getElementById('tool-status').textContent = 'Running...';
+            document.getElementById('tool-input').textContent = data?.input || '';
+            document.getElementById('tool-output').textContent = '';
+            document.getElementById('tool-progress').style.width = '0%';
+            
+            // Simulate progress
+            animateProgress();
+        }
+        
+        function getToolIcon(name) {
+            const icons = {
+                'bash': '⚡',
+                'read': '📄',
+                'write': '✏️',
+                'edit': '📝',
+                'glob': '📁',
+                'grep': '🔍',
+                'web_search': '🌐',
+                'web_fetch': '🔗',
+            };
+            return icons[name] || '🔧';
+        }
+        
+        function updateToolOutput(output) {
+            const outputDiv = document.getElementById('tool-output');
+            outputDiv.textContent = String(output).substring(0, 500);
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+        }
+        
+        function finishToolPanel() {
+            document.getElementById('tool-icon').className = 'tool-icon success';
+            document.getElementById('tool-icon').textContent = '✓';
+            document.getElementById('tool-status').textContent = 'Completed';
+            document.getElementById('tool-progress').style.width = '100%';
+            
+            setTimeout(hideToolPanel, 1500);
+        }
+        
+        function showToolError(error) {
+            document.getElementById('tool-icon').className = 'tool-icon error';
+            document.getElementById('tool-icon').textContent = '✗';
+            document.getElementById('tool-status').textContent = 'Error';
+            document.getElementById('tool-output').textContent = String(error);
+        }
+        
+        function hideToolPanel() {
+            document.getElementById('tool-panel').classList.remove('visible');
+        }
+        
+        function animateProgress() {
+            const progress = document.getElementById('tool-progress');
+            let width = 0;
+            const interval = setInterval(() => {
+                if (width >= 90 || !document.getElementById('tool-panel').classList.contains('visible')) {
+                    clearInterval(interval);
+                    return;
+                }
+                width += 5;
+                progress.style.width = width + '%';
+            }, 200);
+        }
+        
+        // Permission modal
+        function showPermissionModal(data) {
+            pendingPermission = data;
+            
+            document.getElementById('permission-modal').classList.add('visible');
+            document.getElementById('permission-message').textContent = data?.message || 'This action requires confirmation.';
+            document.getElementById('permission-tool-name').textContent = data?.tool_name || 'unknown';
+            document.getElementById('permission-tool-input').textContent = data?.input || '';
+        }
+        
+        function allowPermission() {
+            if (pendingPermission) {
+                ws.send(JSON.stringify({
+                    type: 'permission_response',
+                    data: {
+                        tool_use_id: pendingPermission.tool_use_id,
+                        allowed: true
+                    }
+                }));
+            }
+            document.getElementById('permission-modal').classList.remove('visible');
+            pendingPermission = null;
+        }
+        
+        function denyPermission() {
+            if (pendingPermission) {
+                ws.send(JSON.stringify({
+                    type: 'permission_response',
+                    data: {
+                        tool_use_id: pendingPermission.tool_use_id,
+                        allowed: false
+                    }
+                }));
+            }
+            document.getElementById('permission-modal').classList.remove('visible');
+            pendingPermission = null;
+        }
+        
+        // Status and cost
+        function updateStatus(text, cls) {
+            const status = document.getElementById('status');
+            status.textContent = text;
+            status.className = 'status ' + cls;
+            
+            const btn = document.getElementById('send-btn');
+            const cancelBtn = document.getElementById('cancel-btn');
+            
+            if (cls === 'thinking' || cls === 'tool') {
+                btn.disabled = true;
+                cancelBtn.classList.add('visible');
+            } else {
+                btn.disabled = false;
+                cancelBtn.classList.remove('visible');
+            }
+        }
+        
+        function updateCost(data) {
+            cost = data || cost;
+            document.getElementById('cost-info').textContent = 'Cost: $' + (cost.total_cost || 0).toFixed(4);
+            document.getElementById('token-info').textContent = 'Tokens: ' + (cost.input_tokens || 0) + '/' + (cost.output_tokens || 0);
+        }
+        
+        // Sessions
+        function refreshSessions() {
+            ws.send(JSON.stringify({ type: 'list_sessions' }));
+        }
+        
+        function updateSessionList(sessionList) {
+            sessions = sessionList || [];
+            const listDiv = document.getElementById('session-list');
+            listDiv.innerHTML = '';
+            
+            sessions.forEach(session => {
+                const item = document.createElement('div');
+                item.className = 'session-item' + (session.id === currentSessionId ? ' active' : '');
+                item.onclick = () => loadSession(session.id);
+                
+                const title = document.createElement('div');
+                title.className = 'title';
+                title.textContent = session.title || 'Session ' + session.id.substring(0, 8);
+                
+                const meta = document.createElement('div');
+                meta.className = 'meta';
+                meta.textContent = formatDate(session.updated_at);
+                
+                item.appendChild(title);
+                item.appendChild(meta);
+                
+                if (session.tags && session.tags.length > 0) {
+                    const tags = document.createElement('div');
+                    tags.className = 'tags';
+                    session.tags.forEach(tag => {
+                        const tagSpan = document.createElement('span');
+                        tagSpan.className = 'tag';
+                        tagSpan.textContent = tag;
+                        tags.appendChild(tagSpan);
+                    });
+                    item.appendChild(tags);
+                }
+                
+                listDiv.appendChild(item);
+            });
+        }
+        
+        function loadSession(id) {
+            ws.send(JSON.stringify({ type: 'load_session', data: { id } }));
+        }
+        
+        function newSession() {
+            ws.send(JSON.stringify({ type: 'new_session' }));
+            document.getElementById('messages').innerHTML = `
+                <div class="empty-state">
+                    <h2>New Session Started</h2>
+                    <p>Ready for a new conversation</p>
+                </div>
+            `;
+        }
+        
+        function updateSessionTitle(title) {
+            const activeItem = document.querySelector('.session-item.active .title');
+            if (activeItem) activeItem.textContent = title;
+        }
+        
+        // UI helpers
+        function removeEmptyState() {
+            const empty = document.querySelector('.empty-state');
+            if (empty) empty.remove();
+        }
+        
+        function scrollToBottom() {
+            const container = document.getElementById('messages');
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        function formatDate(date) {
+            if (!date) return '';
+            const d = new Date(date);
+            return d.toLocaleDateString() + ' ' + d.toLocaleTimeString().substring(0, 5);
+        }
+        
+        function showError(error) {
+            addMessage('assistant', '⚠️ Error: ' + String(error));
+        }
+        
+        // Sidebar
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('collapsed');
+        }
+        
+        // Settings
+        function showSettings() {
+            document.getElementById('settings-modal').classList.add('visible');
+        }
+        
+        function hideSettings() {
+            document.getElementById('settings-modal').classList.remove('visible');
+        }
+        
+        function saveSettings() {
+            const model = document.getElementById('settings-model').value;
+            const maxTokens = document.getElementById('settings-max-tokens').value;
+            const apiKey = document.getElementById('settings-api-key').value;
+            
+            ws.send(JSON.stringify({
+                type: 'update_settings',
+                data: { model, max_tokens: parseInt(maxTokens), api_key: apiKey }
+            }));
+            
+            hideSettings();
+        }
+        
+        // Input handling
+        function sendMessage() {
+            const input = document.getElementById('input');
+            const text = input.value.trim();
+            if (!text) return;
+            
+            ws.send(JSON.stringify({ type: 'input', content: text }));
+            
+            if (!text.startsWith('/')) {
+                history.push(text);
+                historyIndex = history.length;
+            }
+            
+            input.value = '';
+            input.style.height = 'auto';
+        }
+        
+        function sendCommand(cmd) {
+            ws.send(JSON.stringify({ type: 'input', content: cmd }));
+        }
+        
+        function setInput(text) {
+            document.getElementById('input').value = text;
+            document.getElementById('input').focus();
+        }
+        
+        function cancelOperation() {
+            ws.send(JSON.stringify({ type: 'cancel' }));
+            updateStatus('Ready', 'active');
+            hideToolPanel();
+        }
+        
+        // Input events
+        const inputBox = document.getElementById('input');
+        
+        inputBox.addEventListener('input', () => {
+            inputBox.style.height = 'auto';
+            inputBox.style.height = Math.min(inputBox.scrollHeight, 200) + 'px';
+        });
+        
+        inputBox.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+            
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    inputBox.value = history[historyIndex] || '';
+                }
+            }
+            
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (historyIndex < history.length - 1) {
+                    historyIndex++;
+                    inputBox.value = history[historyIndex] || '';
+                } else {
+                    historyIndex = history.length;
+                    inputBox.value = '';
+                }
+            }
+            
+            // Escape to cancel
+            if (e.key === 'Escape') {
+                cancelOperation();
+            }
+        });
+        
+        document.getElementById('send-btn').addEventListener('click', sendMessage);
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Ctrl/Cmd + L to clear
+            if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
+                e.preventDefault();
+                sendCommand('/clear');
+            }
+            
+            // Ctrl/Cmd + H for help
+            if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
+                e.preventDefault();
+                sendCommand('/help');
+            }
+        });
+        
+        // Theme toggle
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            document.getElementById('theme-icon').textContent = newTheme === 'light' ? '☀️' : '🌙';
+            localStorage.setItem('theme', newTheme);
+        }
+        
+        // Apply saved theme on load
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        document.getElementById('theme-icon').textContent = savedTheme === 'light' ? '☀️' : '🌙';
+        
+        // Initialize
+        connect();
+    </script>
+</body>
+</html>
