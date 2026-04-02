@@ -163,9 +163,14 @@ func NewModel(e *engine.Engine) Model {
 		"/permission", "/config", "/version", "/cost",
 	}
 
+	// Get event bus and subscribe BEFORE creating the model
+	eventBus := e.GetEventBus()
+	eventCh := eventBus.SubscribeAll()
+
 	return Model{
 		engine:       e,
-		eventBus:     e.GetEventBus(),
+		eventBus:     eventBus,
+		eventCh:      eventCh,  // Pre-subscribe to events
 		input:        ti,
 		spinner:      s,
 		status:       "Ready",
@@ -182,9 +187,7 @@ func NewModel(e *engine.Engine) Model {
 
 // Init initializes the TUI.
 func (m Model) Init() tea.Cmd {
-	// Subscribe to events
-	m.eventCh = m.eventBus.SubscribeAll()
-	
+	// eventCh is already subscribed in NewModel()
 	return tea.Batch(
 		m.spinner.Tick,
 		m.waitForEvent(),
