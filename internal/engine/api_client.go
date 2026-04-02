@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -339,11 +340,11 @@ func (c *APIClient) processOpenAIStreamEvent(event OpenAIStreamEvent, respCh cha
 	// Handle finish
 	if choice.FinishReason != "" {
 		respCh <- StreamResponse{
-			Type:      "message_stop",
-			MessageID: *messageID,
+			Type:       "done",
+			MessageID:  *messageID,
 			StopReason: choice.FinishReason,
-			Usage:     totalUsage,
-			Cost:      c.calculateCost(model, *totalUsage),
+			Usage:      totalUsage,
+			Cost:       c.calculateCost(model, *totalUsage),
 		}
 	}
 }
@@ -373,6 +374,12 @@ func (c *APIClient) Stream(ctx context.Context, req APIRequest) (<-chan StreamRe
 		endpoint = c.baseURL + "/chat/completions"
 	}
 
+	// Debug: log request
+	if c.config.Debug {
+		log.Printf("[DEBUG] API Request to: %s", endpoint)
+		log.Printf("[DEBUG] Request body: %s", string(body))
+	}
+
 	httpReq, err := http.NewRequestWithContext(ctx, "POST",
 		endpoint, strings.NewReader(string(body)))
 	if err != nil {
@@ -400,12 +407,15 @@ func (c *APIClient) Stream(ctx context.Context, req APIRequest) (<-chan StreamRe
 	if resp.StatusCode != http.StatusOK {
 		defer resp.Body.Close()
 		errorBody, _ := io.ReadAll(resp.Body)
+		log.Printf("[DEBUG] API Error: status=%d body=%s", resp.StatusCode, string(errorBody))
 		return nil, &APIError{
 			StatusCode: resp.StatusCode,
 			Type:       "http_error",
 			Message:    string(errorBody),
 		}
 	}
+
+	log.Printf("[DEBUG] API Response: status=%d", resp.StatusCode)
 
 	// Create response channel
 	respCh := make(chan StreamResponse, 100)
@@ -429,6 +439,7 @@ func (c *APIClient) processSSEStream(ctx context.Context, body io.ReadCloser, mo
 		currentBlock *ContentBlock
 		blockIndex   int
 		totalUsage   APIUsage
+		doneSent     bool // Track if we've sent the done response
 	)
 
 	for {
@@ -442,7 +453,17 @@ func (c *APIClient) processSSEStream(ctx context.Context, body io.ReadCloser, mo
 
 		line, err := reader.ReadString('\n')
 		if err != nil {
-			if err != io.EOF {
+			if err == io.EOF {
+				// Stream ended - send done if not already sent
+				if !doneSent {
+					respCh <- StreamResponse{
+						Type:      "done",
+						MessageID: messageID,
+						Usage:     &totalUsage,
+						Cost:      c.calculateCost(model, totalUsage),
+					}
+				}
+			} else {
 				respCh <- StreamResponse{Type: "error", Error: err}
 			}
 			return
@@ -461,11 +482,13 @@ func (c *APIClient) processSSEStream(ctx context.Context, body io.ReadCloser, mo
 		data := strings.TrimPrefix(line, "data: ")
 		if data == "[DONE]" {
 			// Send final response
-			respCh <- StreamResponse{
-				Type:      "done",
-				MessageID: messageID,
-				Usage:     &totalUsage,
-				Cost:      c.calculateCost(model, totalUsage),
+			if !doneSent {
+				respCh <- StreamResponse{
+					Type:      "done",
+					MessageID: messageID,
+					Usage:     &totalUsage,
+					Cost:      c.calculateCost(model, totalUsage),
+				}
 			}
 			return
 		}
@@ -634,6 +657,12 @@ func (c *APIClient) Send(ctx context.Context, req APIRequest) (*APIResponse, err
 	endpoint := c.baseURL + "/v1/messages"
 	if c.isDashScope {
 		endpoint = c.baseURL + "/chat/completions"
+	}
+
+	// Debug: log request
+	if c.config.Debug {
+		log.Printf("[DEBUG] API Request to: %s", endpoint)
+		log.Printf("[DEBUG] Request body: %s", string(body))
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST",

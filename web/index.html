@@ -1609,7 +1609,21 @@
         }
         
         function showError(error) {
-            addMessage('assistant', '⚠️ Error: ' + String(error));
+            let errorMsg = 'Unknown error';
+            if (typeof error === 'string') {
+                errorMsg = error;
+            } else if (error && error.message) {
+                errorMsg = error.message;
+            } else if (error && error.Message) {
+                errorMsg = error.Message;
+            } else if (error) {
+                try {
+                    errorMsg = JSON.stringify(error);
+                } catch (e) {
+                    errorMsg = String(error);
+                }
+            }
+            addMessage('assistant', '⚠️ Error: ' + errorMsg);
         }
         
         // Sidebar

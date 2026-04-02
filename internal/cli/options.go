@@ -19,6 +19,7 @@ type Options struct {
 	// API Configuration
 	Model     string
 	APIKey    string
+	BaseURL   string
 	MaxTokens int
 
 	// UI Mode

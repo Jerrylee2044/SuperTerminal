@@ -398,10 +398,14 @@ func (e *Engine) processAPIRequest() {
 		Tools:     BuildToolsForAPI(e.toolManager.GetToolDefinitions()),
 	}
 
+	// Send API start event
+	e.eventBus.Publish(NewEvent(EventAPIStart, nil, SourceAPI))
+
 	// Stream response from API
 	respChan, err := e.apiClient.Stream(e.ctx, req)
 	if err != nil {
-		e.eventBus.Publish(NewEvent(EventAPIError, err, SourceAPI))
+		errMsg := fmt.Sprintf("%v", err)
+		e.eventBus.Publish(NewEvent(EventAPIError, errMsg, SourceAPI))
 		return
 	}
 
@@ -462,9 +466,11 @@ func (e *Engine) processAPIRequest() {
 
 		case "error":
 			// Error from API
-			e.eventBus.Publish(NewEvent(EventAPIError, resp.Error, SourceAPI))
+			errMsg := fmt.Sprintf("%v", resp.Error)
+			e.eventBus.Publish(NewEvent(EventAPIError, errMsg, SourceAPI))
 			return
 
+		case "message_stop":
 		case "done":
 			// Message complete - save to session
 			if assistantContent != "" || len(toolCalls) > 0 {

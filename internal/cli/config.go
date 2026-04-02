@@ -14,6 +14,7 @@ type ConfigFile struct {
 	// API Configuration
 	Model     string `json:"model" yaml:"model"`
 	APIKey    string `json:"api_key" yaml:"api_key"`
+	BaseURL   string `json:"base_url" yaml:"base_url"`
 	MaxTokens int    `json:"max_tokens" yaml:"max_tokens"`
 
 	// UI Configuration
@@ -247,6 +248,12 @@ func MergeOptions(config *ConfigFile, opts Options) Options {
 	if result.APIKey == "" {
 		if config.APIKey != "" {
 			result.APIKey = config.APIKey
+		}
+	}
+
+	if result.BaseURL == "" {
+		if config.BaseURL != "" {
+			result.BaseURL = config.BaseURL
 		}
 	}
 

@@ -70,6 +70,7 @@ func main() {
 	engineConfig := &engine.Config{
 		Model:       opts.Model,
 		APIKey:      opts.APIKey,
+		BaseURL:     opts.BaseURL,
 		MaxTokens:   opts.MaxTokens,
 		DataDir:     opts.DataDir,
 		Debug:       opts.Debug,
