@@ -22,6 +22,7 @@ type Server struct {
 	upgrader   websocket.Upgrader
 	clients    map[*websocket.Conn]bool
 	clientsMu  sync.RWMutex
+	mu         sync.Mutex // Protects WebSocket writes
 	eventCh    chan engine.Event
 	staticPath string
 }
@@ -282,14 +283,28 @@ func (s *Server) handleClientMessages(conn *websocket.Conn) {
 func (s *Server) broadcastEvents() {
 	for event := range s.eventCh {
 		s.clientsMu.RLock()
+		
+		// Create a slice to avoid holding lock while writing
+		connections := make([]*websocket.Conn, 0, len(s.clients))
 		for conn := range s.clients {
-			conn.WriteJSON(map[string]interface{}{
+			connections = append(connections, conn)
+		}
+		s.clientsMu.RUnlock()
+		
+		// Broadcast to all connections
+		for _, conn := range connections {
+			s.mu.Lock()
+			err := conn.WriteJSON(map[string]interface{}{
 				"type": event.Type,
 				"data": event.Data,
 				"source": event.Source,
 			})
+			s.mu.Unlock()
+			if err != nil {
+				// Connection error, will be cleaned up
+				continue
+			}
 		}
-		s.clientsMu.RUnlock()
 	}
 }
 

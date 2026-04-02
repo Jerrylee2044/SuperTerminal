@@ -975,6 +975,30 @@
     </div>
 
     <script>
+        // Initialize app on page load
+        async function initApp() {
+            try {
+                // Fetch config from server
+                const response = await fetch('/api/config');
+                if (response.ok) {
+                    const config = await response.json();
+                    // Update model display
+                    if (config.model) {
+                        document.getElementById('model-info').textContent = config.model;
+                        document.getElementById('settings-model').value = config.model;
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load config:', e);
+            }
+            
+            // Connect WebSocket
+            connectWebSocket();
+        }
+        
+        // Run init when DOM is ready
+        document.addEventListener('DOMContentLoaded', initApp);
+        
         // State
         let ws = null;
         let messages = [];
