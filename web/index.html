@@ -1106,7 +1106,12 @@
                     break;
                     
                 case 'tool_output':
-                    updateToolOutput(event.data);
+                    // If source is 'engine', it's a command output - display in chat
+                    if (event.source === 'engine') {
+                        addAssistantMessage(String(event.data));
+                    } else {
+                        updateToolOutput(event.data);
+                    }
                     break;
                     
                 case 'tool_complete':
@@ -1284,6 +1289,10 @@
             container.appendChild(msgDiv);
             
             scrollToBottom();
+        }
+        
+        function addAssistantMessage(content) {
+            addMessage('assistant', content);
         }
         
         // Format content with markdown

@@ -128,7 +128,9 @@ func (s *Server) sendInitialState(conn *websocket.Conn) {
 		"status":  s.engine.GetStatus(),
 		"messages": s.engine.GetSession().GetMessages(),
 	}
+	s.mu.Lock()
 	conn.WriteJSON(state)
+	s.mu.Unlock()
 }
 
 // handleClientMessages reads messages from a WebSocket client.
@@ -154,10 +156,12 @@ func (s *Server) handleClientMessages(conn *websocket.Conn) {
 			// New format: { type: "input", content: "text" }
 			if content, ok := msg["content"].(string); ok {
 				s.engine.ProcessInput(content, engine.SourceWeb)
+				s.mu.Lock()
 				conn.WriteJSON(map[string]interface{}{
 					"type":    "input_received",
 					"data":    map[string]string{"content": content},
 				})
+				s.mu.Unlock()
 			}
 			
 		case "command":
@@ -167,25 +171,34 @@ func (s *Server) handleClientMessages(conn *websocket.Conn) {
 			
 		case "cancel":
 			s.engine.GetEventBus().Publish(engine.NewEvent(engine.EventError, "cancel_requested", engine.SourceWeb))
+			s.mu.Lock()
 			conn.WriteJSON(map[string]interface{}{"type": "cancelled"})
+			s.mu.Unlock()
 			
 		case "ping":
+			s.mu.Lock()
 			conn.WriteJSON(map[string]interface{}{"type": "pong"})
+			s.mu.Unlock()
 			
 		case "get_status":
+			s.mu.Lock()
 			conn.WriteJSON(map[string]interface{}{
 				"type": "status",
 				"data": map[string]string{"status": string(s.engine.GetStatus())},
 			})
+			s.mu.Unlock()
 			
 		case "get_cost":
+			s.mu.Lock()
 			conn.WriteJSON(map[string]interface{}{
 				"type": "cost",
 				"data": s.engine.GetCost(),
 			})
+			s.mu.Unlock()
 			
 		case "get_session":
 			session := s.engine.GetSession()
+			s.mu.Lock()
 			conn.WriteJSON(map[string]interface{}{
 				"type": "session",
 				"data": map[string]interface{}{
@@ -194,20 +207,25 @@ func (s *Server) handleClientMessages(conn *websocket.Conn) {
 					"info":          session.GetInfo(),
 				},
 			})
+			s.mu.Unlock()
 			
 		case "load_session":
 			if data, ok := msg["data"].(map[string]interface{}); ok {
 				if id, ok := data["id"].(string); ok {
 					if err := s.engine.LoadSession(id); err != nil {
+						s.mu.Lock()
 						conn.WriteJSON(map[string]interface{}{
 							"type":  "error",
 							"error": err.Error(),
 						})
+						s.mu.Unlock()
 					} else {
+						s.mu.Lock()
 						conn.WriteJSON(map[string]interface{}{
 							"type": "session_loaded",
 							"data": map[string]string{"id": id},
 						})
+						s.mu.Unlock()
 					}
 				}
 			}
@@ -215,37 +233,47 @@ func (s *Server) handleClientMessages(conn *websocket.Conn) {
 		case "save_session":
 			session := s.engine.GetSession()
 			if err := s.engine.SaveSession(session.ID); err != nil {
+				s.mu.Lock()
 				conn.WriteJSON(map[string]interface{}{
 					"type":  "error",
 					"error": err.Error(),
 				})
+				s.mu.Unlock()
 			} else {
+				s.mu.Lock()
 				conn.WriteJSON(map[string]interface{}{
 					"type": "session_saved",
 					"data": map[string]string{"id": session.ID},
 				})
+				s.mu.Unlock()
 			}
 			
 		case "new_session":
 			// Clear current session
 			s.engine.GetSession().Clear()
+			s.mu.Lock()
 			conn.WriteJSON(map[string]interface{}{
 				"type": "session_loaded",
 				"data": map[string]string{"id": "new"},
 			})
+			s.mu.Unlock()
 			
 		case "list_sessions":
 			sessions, err := s.engine.ListSessions()
 			if err != nil {
+				s.mu.Lock()
 				conn.WriteJSON(map[string]interface{}{
 					"type":  "error",
 					"error": err.Error(),
 				})
+				s.mu.Unlock()
 			} else {
+				s.mu.Lock()
 				conn.WriteJSON(map[string]interface{}{
 					"type": "session_list",
 					"data": sessions,
 				})
+				s.mu.Unlock()
 			}
 			
 		case "update_settings":
@@ -257,24 +285,30 @@ func (s *Server) handleClientMessages(conn *websocket.Conn) {
 				if maxTokens, ok := data["max_tokens"].(float64); ok {
 					config.MaxTokens = int(maxTokens)
 				}
+				s.mu.Lock()
 				conn.WriteJSON(map[string]interface{}{
 					"type": "settings_updated",
 				})
+				s.mu.Unlock()
 			}
 			
 		case "permission_response":
 			// Handle permission response from user
 			// For now, auto-approve in engine
+			s.mu.Lock()
 			conn.WriteJSON(map[string]interface{}{
 				"type": "permission_handled",
 			})
+			s.mu.Unlock()
 			
 		default:
 			// Unknown command type
+			s.mu.Lock()
 			conn.WriteJSON(map[string]interface{}{
 				"type":  "error",
 				"error": "Unknown command type: " + msgType,
 			})
+			s.mu.Unlock()
 		}
 	}
 }
