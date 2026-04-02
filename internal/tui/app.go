@@ -375,11 +375,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Engine events
 	case engine.Event:
-		m = m.handleEngineEvent(typedMsg)
+		var shouldExit bool
+		m, shouldExit = m.handleEngineEvent(typedMsg)
+		if shouldExit {
+			return m, tea.Quit
+		}
 
 	// Custom event message (from waitForEvent)
 	case EventMsg:
-		m = m.handleEngineEvent(typedMsg.Event)
+		var shouldExit bool
+		m, shouldExit = m.handleEngineEvent(typedMsg.Event)
+		if shouldExit {
+			return m, tea.Quit
+		}
 		cmds = append(cmds, m.waitForEvent())
 	}
 
@@ -454,7 +462,8 @@ func (m *Model) SetProgress(progress float64, text string) {
 }
 
 // handleEngineEvent processes an event from the engine.
-func (m Model) handleEngineEvent(event engine.Event) Model {
+// Returns the updated model and a boolean indicating if the TUI should exit.
+func (m Model) handleEngineEvent(event engine.Event) (Model, bool) {
 	switch event.Type {
 	case engine.EventUserInput:
 		// User input already added locally
@@ -534,11 +543,15 @@ func (m Model) handleEngineEvent(event engine.Event) Model {
 
 	case engine.EventError:
 		if err, ok := event.Data.(error); ok {
+			// Check for exit request
+			if err.Error() == "exit requested" {
+				return m, true
+			}
 			m.errorMsg = err.Error()
 		}
 	}
 
-	return m
+	return m, false
 }
 
 // View renders the TUI.
@@ -669,8 +682,39 @@ func (m Model) renderMessages() string {
 	}
 
 	var b strings.Builder
-	maxMessages := minInt(len(m.messages), 20) // Show last 20 messages
-	startIdx := len(m.messages) - maxMessages
+	
+	// Calculate available height for messages
+	// Reserve space for: title (3), status (2), input (3), tool/error (2 each)
+	reservedLines := 10
+	if m.currentTool != nil {
+		reservedLines += 3
+	}
+	if m.errorMsg != "" {
+		reservedLines += 3
+	}
+	if len(m.suggestions) > 0 {
+		reservedLines += 2
+	}
+	
+	availableHeight := m.height - reservedLines
+	if availableHeight < 5 {
+		availableHeight = 5
+	}
+	
+	// Calculate which messages to show based on available height
+	startIdx := 0
+	
+	// Estimate lines per message (rough estimate)
+	linesUsed := 0
+	for i := len(m.messages) - 1; i >= 0; i-- {
+		msg := m.messages[i]
+		msgLines := (len(msg.Content) / (m.width - 10)) + 2 // Estimate wrapping
+		if linesUsed + msgLines > availableHeight {
+			startIdx = i + 1
+			break
+		}
+		linesUsed += msgLines
+	}
 
 	for i := startIdx; i < len(m.messages); i++ {
 		msg := m.messages[i]
@@ -791,6 +835,9 @@ Commands:
 type EventMsg struct {
 	Event engine.Event
 }
+
+// ExitMsg signals the TUI to exit.
+type ExitMsg struct{}
 
 // waitForEvent returns a Cmd that waits for the next engine event.
 func (m Model) waitForEvent() tea.Cmd {
