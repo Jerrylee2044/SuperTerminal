@@ -204,11 +204,16 @@ Environment Variables:
 
 // printVersion prints version information.
 func printVersion() {
+	version := Version
+	// Remove leading 'v' if present to avoid double 'v'
+	if len(version) > 0 && version[0] == 'v' {
+		version = version[1:]
+	}
 	fmt.Printf(`SuperTerminal v%s
 Build: %s
 
 A high-performance AI terminal assistant with dual UI support.
-`, Version, BuildDate)
+`, version, BuildDate)
 }
 
 // GetEnvOrDefault gets an environment variable or returns default.
