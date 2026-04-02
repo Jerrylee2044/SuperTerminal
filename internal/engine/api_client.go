@@ -97,6 +97,34 @@ type MessageStartData struct {
 	Usage   APIUsage  `json:"usage"`
 }
 
+// OpenAIStreamChoice represents a choice in OpenAI streaming response.
+type OpenAIStreamChoice struct {
+	Index        int                     `json:"index"`
+	Delta        OpenAIDelta             `json:"delta"`
+	FinishReason string                  `json:"finish_reason"`
+}
+
+// OpenAIDelta represents the delta in OpenAI streaming response.
+type OpenAIDelta struct {
+	Content          string `json:"content"`
+	ReasoningContent string `json:"reasoning_content"`
+	Role             string `json:"role"`
+}
+
+// OpenAIStreamEvent represents an OpenAI-style SSE stream event.
+type OpenAIStreamEvent struct {
+	ID      string              `json:"id"`
+	Object  string              `json:"object"`
+	Created int                 `json:"created"`
+	Model   string              `json:"model"`
+	Choices []OpenAIStreamChoice `json:"choices"`
+	Usage   struct {
+		PromptTokens     int `json:"prompt_tokens"`
+		CompletionTokens int `json:"completion_tokens"`
+		TotalTokens      int `json:"total_tokens"`
+	} `json:"usage"`
+}
+
 // ContentBlockDelta represents a delta in content.
 type ContentBlockDelta struct {
 	Type string `json:"type"`
@@ -139,6 +167,7 @@ type APIClient struct {
 	apiKey      string
 	baseURL     string
 	modelPricing map[string]ModelPricing
+	isDashScope bool
 	mu          sync.RWMutex
 }
 
@@ -180,13 +209,34 @@ var defaultPricing = map[string]ModelPricing{
 
 // NewAPIClient creates a new API client.
 func NewAPIClient(config *Config) *APIClient {
-	return &APIClient{
+	isDashScope := strings.Contains(config.BaseURL, "dashscope")
+	
+	client := &APIClient{
 		config:       config,
 		httpClient:   &http.Client{Timeout: 120 * time.Second},
 		apiKey:       config.APIKey,
 		baseURL:      config.BaseURL,
 		modelPricing: defaultPricing,
+		isDashScope:  isDashScope,
 	}
+	
+	// Add DashScope-specific pricing
+	if isDashScope {
+		client.modelPricing["qwen3.5-plus"] = ModelPricing{
+			InputPerMillion:  0.8,
+			OutputPerMillion: 4.0,
+		}
+		client.modelPricing["qwen3.5"] = ModelPricing{
+			InputPerMillion:  0.6,
+			OutputPerMillion: 3.0,
+		}
+		client.modelPricing["qwen2.5-coder-plus"] = ModelPricing{
+			InputPerMillion:  0.8,
+			OutputPerMillion: 4.0,
+		}
+	}
+	
+	return client
 }
 
 // ============================================================================
@@ -209,29 +259,137 @@ type StreamResponse struct {
 	StopReason  string          `json:"stop_reason,omitempty"`
 }
 
+// Convert request to DashScope (OpenAI-compatible) format
+func convertToDashScopeRequest(req APIRequest) map[string]interface{} {
+	messages := make([]map[string]interface{}, len(req.Messages))
+	
+	for i, msg := range req.Messages {
+		// Convert content blocks to simple string
+		var content string
+		if len(msg.Content) > 0 {
+			// Join all text content
+			var texts []string
+			for _, block := range msg.Content {
+				if block.Text != "" {
+					texts = append(texts, block.Text)
+				}
+			}
+			content = strings.Join(texts, "\n")
+		}
+		
+		messages[i] = map[string]interface{}{
+			"role":    msg.Role,
+			"content": content,
+		}
+	}
+	
+	result := map[string]interface{}{
+		"model":      req.Model,
+		"max_tokens": req.MaxTokens,
+		"messages":   messages,
+		"stream":     req.Stream,
+	}
+	
+	// Add system message if present
+	if req.System != "" {
+		result["system"] = req.System
+	}
+	
+	// Note: Tools are not converted for now - DashScope may handle differently
+	
+	return result
+}
+
+// processOpenAIStreamEvent processes OpenAI/DashScope format streaming events.
+func (c *APIClient) processOpenAIStreamEvent(event OpenAIStreamEvent, respCh chan<- StreamResponse, totalUsage *APIUsage, messageID *string, model string) {
+	if len(event.Choices) == 0 {
+		return
+	}
+	
+	choice := event.Choices[0]
+	delta := choice.Delta
+	
+	// Update message ID from first event
+	if *messageID == "" {
+		*messageID = event.ID
+	}
+	
+	// Handle usage from first event
+	if event.Usage.TotalTokens > 0 && totalUsage.InputTokens == 0 {
+		totalUsage.InputTokens = int64(event.Usage.PromptTokens)
+		totalUsage.OutputTokens = int64(event.Usage.CompletionTokens)
+	}
+	
+	// Handle reasoning content (thinking)
+	if delta.ReasoningContent != "" {
+		respCh <- StreamResponse{
+			Type:     "thinking",
+			Thinking: delta.ReasoningContent,
+		}
+	}
+	
+	// Handle content
+	if delta.Content != "" {
+		respCh <- StreamResponse{
+			Type: "text",
+			Text: delta.Content,
+		}
+	}
+	
+	// Handle finish
+	if choice.FinishReason != "" {
+		respCh <- StreamResponse{
+			Type:      "message_stop",
+			MessageID: *messageID,
+			StopReason: choice.FinishReason,
+			Usage:     totalUsage,
+			Cost:      c.calculateCost(model, *totalUsage),
+		}
+	}
+}
+
 // Stream sends a streaming request to the Claude API.
 // Returns a channel that yields processed StreamResponse objects.
 func (c *APIClient) Stream(ctx context.Context, req APIRequest) (<-chan StreamResponse, error) {
 	req.Stream = true
 	
-	body, err := json.Marshal(req)
+	var body []byte
+	var err error
+	
+	if c.isDashScope {
+		// Convert to DashScope (OpenAI-compatible) format
+		dashReq := convertToDashScopeRequest(req)
+		body, err = json.Marshal(dashReq)
+	} else {
+		body, err = json.Marshal(req)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
+	// Determine endpoint based on provider
+	endpoint := c.baseURL + "/v1/messages"
+	if c.isDashScope {
+		endpoint = c.baseURL + "/chat/completions"
+	}
+
 	httpReq, err := http.NewRequestWithContext(ctx, "POST",
-		c.baseURL+"/v1/messages", strings.NewReader(string(body)))
+		endpoint, strings.NewReader(string(body)))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 
 	// Set headers
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("x-api-key", c.apiKey)
-	httpReq.Header.Set("anthropic-version", "2023-06-01")
-	
-	// Add beta headers for features
-	httpReq.Header.Set("anthropic-beta", "max-tokens-3-5-sonnet-2024-07-15")
+	if c.isDashScope {
+		// DashScope uses OpenAI-compatible API with Bearer token
+		httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	} else {
+		// Anthropic API
+		httpReq.Header.Set("x-api-key", c.apiKey)
+		httpReq.Header.Set("anthropic-version", "2023-06-01")
+		// Add beta headers for features
+		httpReq.Header.Set("anthropic-beta", "max-tokens-3-5-sonnet-2024-07-15")
+	}
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
@@ -313,7 +471,22 @@ func (c *APIClient) processSSEStream(ctx context.Context, body io.ReadCloser, mo
 		}
 
 		// Parse event
+		// Check format: Anthropic has "type" field, OpenAI/DashScope has "choices" field
 		var event StreamEvent
+		var openaiEvent OpenAIStreamEvent
+		
+		// Try to detect format by checking for "choices" (OpenAI) or "type" (Anthropic)
+		if strings.Contains(data, `"choices"`) {
+			// OpenAI/DashScope format
+			if err := json.Unmarshal([]byte(data), &openaiEvent); err != nil {
+				continue
+			}
+			// Process OpenAI format
+			c.processOpenAIStreamEvent(openaiEvent, respCh, &totalUsage, &messageID, model)
+			continue
+		}
+		
+		// Anthropic format
 		if err := json.Unmarshal([]byte(data), &event); err != nil {
 			// Skip malformed events
 			continue
@@ -443,20 +616,43 @@ type APIResponse struct {
 func (c *APIClient) Send(ctx context.Context, req APIRequest) (*APIResponse, error) {
 	req.Stream = false
 
-	body, err := json.Marshal(req)
+	var body []byte
+	var err error
+	
+	if c.isDashScope {
+		// Convert to DashScope (OpenAI-compatible) format
+		dashReq := convertToDashScopeRequest(req)
+		body, err = json.Marshal(dashReq)
+	} else {
+		body, err = json.Marshal(req)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
+	// Determine endpoint based on provider
+	endpoint := c.baseURL + "/v1/messages"
+	if c.isDashScope {
+		endpoint = c.baseURL + "/chat/completions"
+	}
+
 	httpReq, err := http.NewRequestWithContext(ctx, "POST",
-		c.baseURL+"/v1/messages", strings.NewReader(string(body)))
+		endpoint, strings.NewReader(string(body)))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("x-api-key", c.apiKey)
-	httpReq.Header.Set("anthropic-version", "2023-06-01")
+	
+	// Set headers based on provider
+	if c.isDashScope {
+		// DashScope uses OpenAI-compatible API with Bearer token
+		httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	} else {
+		// Anthropic API
+		httpReq.Header.Set("x-api-key", c.apiKey)
+		httpReq.Header.Set("anthropic-version", "2023-06-01")
+	}
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {

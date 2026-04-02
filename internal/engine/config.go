@@ -9,8 +9,11 @@ import (
 
 // Aliyun DASHSCOPE constants for CODING Plan
 const (
-	// DashScopeBaseURL is the base URL for Aliyun DashScope API
-	DashScopeBaseURL = "https://coding.dashscope.aliyuncs.com/apps/anthropic"
+	// DashScopeBaseURL is the base URL for Aliyun DashScope API (OpenAI compatible)
+	DashScopeBaseURL = "https://coding.dashscope.aliyuncs.com/v1"
+	
+	// DashScopeBaseURLAnthropic is the Anthropic-compatible endpoint
+	DashScopeBaseURLAnthropic = "https://coding.dashscope.aliyuncs.com/apps/anthropic"
 	
 	// DashScopeAPIKeyEnv is the environment variable for DashScope API key
 	DashScopeAPIKeyEnv = "DASHSCOPE_API_KEY"
@@ -208,7 +211,7 @@ func (cm *ConfigManager) EnableDashScope(apiKey, model string) {
 func (cm *ConfigManager) IsDashScope() bool {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
-	return cm.config.BaseURL == DashScopeBaseURL
+	return cm.config.BaseURL == DashScopeBaseURL || cm.config.BaseURL == DashScopeBaseURLAnthropic
 }
 
 // GetAvailableModels returns list of available models based on current provider.
@@ -216,7 +219,7 @@ func (cm *ConfigManager) GetAvailableModels() []string {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
 	
-	if cm.config.BaseURL == DashScopeBaseURL {
+	if cm.config.BaseURL == DashScopeBaseURL || cm.config.BaseURL == DashScopeBaseURLAnthropic {
 		return []string{
 			"qwen3.5-plus",
 			"qwen3.5",

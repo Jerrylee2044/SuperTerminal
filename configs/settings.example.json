@@ -1,7 +1,7 @@
 {
-  "api_key": "",
-  "base_url": "https://api.anthropic.com",
-  "model": "claude-sonnet-4-20250514",
+  "api_key": "YOUR_API_KEY",
+  "base_url": "https://coding.dashscope.aliyuncs.com/v1",
+  "model": "qwen3.5-plus",
   "max_tokens": 4096,
   "permission_mode": "ask",
   "auto_commit": false,
@@ -24,7 +24,7 @@
  * 
  * {
  *   "api_key": "你的 CODING Plan API Key",
- *   "base_url": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
+ *   "base_url": "https://coding.dashscope.aliyuncs.com/v1",
  *   "model": "qwen3.5-plus"
  * }
  * 
