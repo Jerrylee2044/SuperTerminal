@@ -5,7 +5,8 @@
   "max_tokens": 4096,
   "permission_mode": "ask",
   "auto_commit": false,
-  "theme": "default",
+  "auto_save": true,
+  "theme": "dark",
   "show_cost": true,
   "show_tokens": true,
   "mcp_servers": [],
@@ -13,3 +14,31 @@
     "~/.superterminal/skills"
   ]
 }
+
+/*
+ * =====================================================
+ * 阿里云百炼 CODING Plan 配置示例
+ * =====================================================
+ * 
+ * 如果使用阿里云百炼 CODING Plan 服务，请按以下方式配置：
+ * 
+ * {
+ *   "api_key": "你的 CODING Plan API Key",
+ *   "base_url": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
+ *   "model": "qwen3.5-plus"
+ * }
+ * 
+ * 可用模型:
+ *   - qwen3.5-plus (推荐)
+ *   - qwen3.5
+ *   - qwen3-plus
+ *   - qwen3
+ *   - qwen2.5-coder-plus
+ *   - qwen2.5-coder
+ * 
+ * 环境变量方式:
+ *   export DASHSCOPE_API_KEY="你的 API Key"
+ *   # SuperTerminal 会自动识别阿里云百炼
+ * 
+ * 更多信息请访问: https://dashscope.console.aliyun.com/
+ */

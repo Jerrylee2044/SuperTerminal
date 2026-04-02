@@ -7,6 +7,15 @@ import (
 	"sync"
 )
 
+// Aliyun DASHSCOPE constants for CODING Plan
+const (
+	// DashScopeBaseURL is the base URL for Aliyun DashScope API
+	DashScopeBaseURL = "https://coding.dashscope.aliyuncs.com/apps/anthropic"
+	
+	// DashScopeAPIKeyEnv is the environment variable for DashScope API key
+	DashScopeAPIKeyEnv = "DASHSCOPE_API_KEY"
+)
+
 // Config holds the engine configuration.
 type Config struct {
 	// API settings
@@ -53,20 +62,32 @@ type MCPServerConfig struct {
 func DefaultConfig() *Config {
 	homeDir, _ := os.UserHomeDir()
 	
+	// Check for DashScope API key first
+	apiKey := os.Getenv("ANTHROPIC_API_KEY")
+	baseURL := "https://api.anthropic.com"
+	model := "claude-sonnet-4-20250514"
+	
+	if dashKey := os.Getenv("DASHSCOPE_API_KEY"); dashKey != "" {
+		apiKey = dashKey
+		baseURL = DashScopeBaseURL
+		model = "qwen3.5-plus"
+	}
+	
 	return &Config{
-		APIKey:         os.Getenv("ANTHROPIC_API_KEY"),
-		BaseURL:        "https://api.anthropic.com",
-		Model:          "claude-sonnet-4-20250514",
+		APIKey:         apiKey,
+		BaseURL:        baseURL,
+		Model:          model,
 		MaxTokens:      4096,
 		PermissionMode: "ask",
-		AutoSave:       true, // Auto-save by default
-		Theme:          "default",
+		AutoSave:       true,
+		Theme:          "dark",
 		ShowCost:       true,
 		ShowTokens:     true,
-		SkillsDirs:     []string{
+		DataDir:        filepath.Join(homeDir, ".superterminal"),
+		Debug:          false,
+		SkillsDirs: []string{
 			filepath.Join(homeDir, ".superterminal", "skills"),
 		},
-		ConfigPath:     filepath.Join(homeDir, ".superterminal", "config.json"),
 	}
 }
 
@@ -168,4 +189,51 @@ func (cm *ConfigManager) SetPermissionMode(mode string) {
 // GetConfigPath returns the path to the config file.
 func (cm *ConfigManager) GetConfigPath() string {
 	return cm.path
+}
+
+// EnableDashScope configures the engine to use Aliyun DashScope (CODING Plan).
+func (cm *ConfigManager) EnableDashScope(apiKey, model string) {
+	cm.mu.Lock()
+	cm.config.APIKey = apiKey
+	cm.config.BaseURL = DashScopeBaseURL
+	if model != "" {
+		cm.config.Model = model
+	} else {
+		cm.config.Model = "qwen3.5-plus"
+	}
+	cm.mu.Unlock()
+}
+
+// IsDashScope returns true if using Aliyun DashScope.
+func (cm *ConfigManager) IsDashScope() bool {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	return cm.config.BaseURL == DashScopeBaseURL
+}
+
+// GetAvailableModels returns list of available models based on current provider.
+func (cm *ConfigManager) GetAvailableModels() []string {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	
+	if cm.config.BaseURL == DashScopeBaseURL {
+		return []string{
+			"qwen3.5-plus",
+			"qwen3.5",
+			"qwen3-plus",
+			"qwen3",
+			"qwen2.5-coder-plus",
+			"qwen2.5-coder",
+		}
+	}
+	
+	// Default Anthropic models
+	return []string{
+		"claude-sonnet-4-20250514",
+		"claude-sonnet-4",
+		"claude-3-5-sonnet-20241022",
+		"claude-3-opus-20240229",
+		"claude-3-sonnet-20240229",
+		"claude-3-haiku-20240307",
+	}
 }

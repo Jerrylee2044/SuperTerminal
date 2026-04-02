@@ -195,11 +195,46 @@ Config file: `~/.superterminal/config.json`
 }
 ```
 
+### 阿里云百炼 CODING Plan
+
+SuperTerminal 支持阿里云百炼 CODING Plan 订阅服务。
+
+**配置文件方式：**
+
+```json
+{
+  "api_key": "你的 CODING Plan API Key",
+  "base_url": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
+  "model": "qwen3.5-plus"
+}
+```
+
+**环境变量方式：**
+
+```bash
+export DASHSCOPE_API_KEY="你的 CODING Plan API Key"
+superterminal  # 自动识别阿里云百炼
+```
+
+**支持的模型：**
+
+| 模型 | 说明 |
+|:---|:---|
+| `qwen3.5-plus` | 推荐 |
+| `qwen3.5` | 标准版 |
+| `qwen3-plus` | 最新版 |
+| `qwen3` | 基础版 |
+| `qwen2.5-coder-plus` | 代码专用 |
+| `qwen2.5-coder` | 代码基础版 |
+
+获取 API Key: [阿里云百炼控制台](https://dashscope.console.aliyun.com/)
+
 ### Environment Variables
 
 | Variable | Description |
 |:---|:---|
 | `ANTHROPIC_API_KEY` | Claude API key |
+| `DASHSCOPE_API_KEY` | Aliyun CODING Plan API key |
 | `SUPERTERMINAL_DATA_DIR` | Data directory (default: ~/.superterminal) |
 | `SUPERTERMINAL_LOG_LEVEL` | Log level (debug/info/warn/error) |
 
