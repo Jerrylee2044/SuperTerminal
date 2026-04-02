@@ -59,17 +59,23 @@ build-all: clean deps
 # Run locally (for development)
 .PHONY: run
 run:
+	mkdir -p ~/.superterminal/web
+	cp web/index.html ~/.superterminal/web/
 	$(GORUN) ./cmd/superterminal
 
 # Run with Web UI
 .PHONY: run-web
 run-web:
-	$(GORUN) ./cmd/superterminal --web --port 8080
+	mkdir -p ~/.superterminal/web
+	cp web/index.html ~/.superterminal/web/
+	$(GORUN) ./cmd/superterminal --ui web --port 8080
 
 # Run Web UI only
 .PHONY: run-web-only
 run-web-only:
-	$(GORUN) ./cmd/superterminal --web-only --port 8080
+	mkdir -p ~/.superterminal/web
+	cp web/index.html ~/.superterminal/web/
+	$(GORUN) ./cmd/superterminal --ui web --port 8080
 
 # Run tests
 .PHONY: test
@@ -86,6 +92,16 @@ clean:
 .PHONY: install
 install: build
 	cp $(BUILD_DIR)/$(BINARY) /usr/local/bin/
+	mkdir -p /usr/local/share/superterminal/web
+	cp web/index.html /usr/local/share/superterminal/web/
+
+# Install to local user directory
+.PHONY: install-local
+install-local: build
+	mkdir -p ~/.local/bin
+	cp $(BUILD_DIR)/$(BINARY) ~/.local/bin/
+	mkdir -p ~/.superterminal/web
+	cp web/index.html ~/.superterminal/web/
 
 # Format code
 .PHONY: fmt
