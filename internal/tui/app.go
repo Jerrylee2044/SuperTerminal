@@ -182,6 +182,8 @@ func NewModel(e *engine.Engine) Model {
 		historyIdx:   -1,
 		multilineBuf: []string{},
 		commands:     commands,
+		width:        80,   // Default width
+		height:       24,   // Default height
 	}
 }
 
@@ -468,6 +470,10 @@ func (m *Model) SetProgress(progress float64, text string) {
 // Returns the updated model and a boolean indicating if the TUI should exit.
 func (m Model) handleEngineEvent(event engine.Event) (Model, bool) {
 	switch event.Type {
+	case engine.EventExit:
+		// Exit requested - return true to trigger tea.Quit
+		return m, true
+
 	case engine.EventUserInput:
 		// User input already added locally
 

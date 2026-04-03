@@ -30,6 +30,7 @@ const (
 	EventToolError    EventType = "tool_error"     // Tool execution failed
 
 	// System events
+	EventExit        EventType = "exit"            // Exit requested
 	EventCostUpdate   EventType = "cost_update"    // Cost tracking update
 	EventSessionSave  EventType = "session_save"   // Session saved
 	EventSessionLoad  EventType = "session_load"   // Session load request
