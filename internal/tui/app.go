@@ -206,7 +206,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = typedMsg.Width
 		m.height = typedMsg.Height
 		m.input.Width = typedMsg.Width - 4
-		return m, nil
+		// Continue to ensure spinner and event listener are updated
 
 	// Key events
 	case tea.KeyMsg:
@@ -393,8 +393,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if shouldExit {
 			return m, tea.Quit
 		}
-		cmds = append(cmds, m.waitForEvent())
 	}
+
+	// Always ensure event listener continues running
+	// This is critical - without this, events stop being received after WindowSizeMsg
+	cmds = append(cmds, m.waitForEvent())
 
 	// Update text input for key events only
 	if _, ok := msg.(tea.KeyMsg); ok && !m.confirmVisible {
